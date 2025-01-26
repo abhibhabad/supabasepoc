@@ -3,9 +3,27 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
+type Developer = {
+  id: string;
+  name: string;
+  location: string;
+  open_to_relocate: boolean;
+  years_of_experience: number;
+  certifications: {
+    name: string;
+    issued_by: string;
+  }[];
+  developerlanguages: {
+    proficiency_level: string;
+    programminglanguages: {
+      name: string;
+    };
+  }[];
+};
+
 export default function Dashboard() {
-  const [developers, setDevelopers] = useState([]);
-  const [selectedDeveloper, setSelectedDeveloper] = useState(null);
+  const [developers, setDevelopers] = useState<Developer[]>([]);
+  const [selectedDeveloper, setSelectedDeveloper] = useState<Developer | null>(null);
   const [search, setSearch] = useState('');
   const [filterRelocation, setFilterRelocation] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -17,8 +35,23 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('developers')
         .select('id, name, location, open_to_relocate, years_of_experience, certifications (name, issued_by), developerlanguages (proficiency_level, programminglanguages (name))');
-      if (error) console.error(error);
-      else setDevelopers(data);
+      if (error) {
+        console.error(error);
+      } else if (data) {
+        const transformedData = data.map((dev) => ({
+          id: dev.id,
+          name: dev.name,
+          location: dev.location,
+          open_to_relocate: dev.open_to_relocate,
+          years_of_experience: dev.years_of_experience,
+          certifications: dev.certifications || [],
+          developerlanguages: dev.developerlanguages?.map((lang) => ({
+            proficiency_level: lang.proficiency_level,
+            programminglanguages: lang.programminglanguages[0] || { name: '' },
+          })) || [],
+        }));
+        setDevelopers(transformedData as Developer[]);
+      }
     };
     fetchDevelopers();
   }, []);
@@ -43,7 +76,7 @@ export default function Dashboard() {
 
   const totalPages = Math.ceil(filteredDevelopers.length / resultsPerPage);
 
-  const getExperienceColor = (experience) => {
+  const getExperienceColor = (experience: number) => {
     const percentage = (experience - 1) / 9; // Normalized from 1 to 10
     const green = Math.floor(255 * percentage);
     const red = 255 - green;
@@ -54,6 +87,7 @@ export default function Dashboard() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white font-sans px-4">
       <header className="sticky top-0 inset-x-0 bg-black text-white p-4 w-full flex justify-between items-center shadow-md">
         <img src="/logo.svg" alt="Logo" className="h-8" />
+        <h1 className="text-xl font-bold">Developers Dashboard</h1>
         <button
           onClick={handleLogout}
           className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
